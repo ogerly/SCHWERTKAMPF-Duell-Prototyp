@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Black Manor Combat — Demo (M1: Engine + Render getrennt)</title>
+<style>
+  body { background: #0b0814; color: #e8e4d0; font-family: monospace; text-align: center; }
+  canvas { image-rendering: pixelated; width: min(96vw, 640px); border: 2px solid #454f70; }
+  .hud { display: flex; gap: 12px; justify-content: center; margin: 8px; align-items: center; }
+  .bar { width: 180px; height: 12px; background: #333; } .bar > div { height: 100%; background: #4be36b; }
+  button { font-family: monospace; margin: 2px; padding: 6px 10px; cursor: pointer; }
+  #end { font-size: 28px; margin: 8px; min-height: 36px; }
+</style>
+</head>
+<body>
+<h2>SCHWERTKAMPF — Modul-Demo (M1)</h2>
+<canvas id="cv" width="320" height="200"></canvas>
+<div class="hud">
+  <span>DU</span><div class="bar"><div id="b1"></div></div>
+  <span>GEGNER</span><div class="bar"><div id="b2"></div></div>
+  <select id="diff"></select>
+</div>
+<div>
+  <button data-a="a" data-z="0">Angriff oben (W)</button>
+  <button data-a="a" data-z="1">Angriff unten (S)</button>
+  <button data-a="b" data-z="0">Block oben (Q)</button>
+  <button data-a="b" data-z="1">Block unten (A)</button>
+  <button id="again">Neu</button>
+</div>
+<div id="end"></div>
+<script type="module">
+import { createFight, resetFight, attack, block, tickFight, WEAPONS, DIFF_NAMES } from './combat-engine.js';
+import { initRender, setSheet, setChars, keyOut, drawFrame, pushSpark, SKINS } from './combat-render.js';
+
+const canvas = document.getElementById('cv');
+const render = initRender(canvas);
+const fight = createFight({ diff: 5 });
+fight.onSpark = (x, y, n, c) => pushSpark(render.fx, x, y, n, c);
+fight.on = (ev, d) => { if (ev === 'end') showEnd(); };
+
+// SFX (Demo-Seite, Chiptune wie Prototyp)
+let ac = null;
+function beep(f0, f1, dur, type = 'square', vol = .06) {
+  if (!ac) return; const o = ac.createOscillator(), v = ac.createGain(), t = ac.currentTime;
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  v.gain.setValueAtTime(vol, t); v.gain.exponentialRampToValueAtTime(.001, t + dur);
+  o.connect(v).connect(ac.destination); o.start(); o.stop(t + dur);
+}
+Object.assign(fight.sfx, {
+  swing: () => beep(420, 120, .12, 'sawtooth', .04), block: () => beep(1200, 500, .09),
+  parry: () => { beep(1800, 900, .18); beep(900, 1400, .1) },
+  hit: () => beep(160, 40, .22, 'square', .1),
+  win: () => beep(300, 900, .5, 'triangle', .1), lose: () => beep(300, 50, .8, 'sawtooth', .1)
+});
+
+// Legacy-Sheet + CHARS-Tabelle (M2: kampf-posen.png + poses.json)
+const [chars, img] = await Promise.all([
+  fetch('./assets/chars-legacy.json').then(r => r.json()),
+  new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = './assets/sheet-legacy.png' })
+]);
+setChars(chars);
+setSheet(keyOut(img, t => { fight.msg = t; fight.msgT = 2000 }));
+let skinKey = Object.keys(chars)[0];
+
+const $ = id => document.getElementById(id);
+const diffSel = $('diff');
+diffSel.innerHTML = DIFF_NAMES.map((n, i) => `<option value="${i + 1}">Stufe ${i + 1} — ${n}</option>`).join('');
+diffSel.value = '5';
+diffSel.onchange = e => { fight.diff = +e.target.value };
+
+function hud() {
+  $('b1').style.width = fight.pl.hp + '%';
+  $('b2').style.width = fight.en.hp + '%';
+}
+function showEnd() { $('end').textContent = fight.win ? 'SIEG!' : 'NIEDERLAGE'; $('end').style.color = fight.win ? '#4be36b' : '#ff3b3b'; }
+function doReset() { resetFight(fight); $('end').textContent = ''; }
+// Angriff UND Block wirken immer auf den Spieler (fight.pl)
+document.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+  (b.dataset.a === 'a' ? attack : block)(fight, fight.pl, +b.dataset.z);
+}));
+addEventListener('keydown', e => {
+  if (e.repeat) return; const k = e.key.toLowerCase();
+  const map = { q: ['b', 0], a: ['b', 1], w: ['a', 0], s: ['a', 1] };
+  if (k === 'enter' && fight.over) return doReset();
+  if (map[k]) { e.preventDefault(); (map[k][0] === 'a' ? attack : block)(fight, fight.pl, map[k][1]) }
+});
+$('again').onclick = doReset;
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(50, now - last); last = now;
+  tickFight(fight, dt);
+  drawFrame(render.g, render, fight, now, dt, SKINS.Ritter);
+  hud();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

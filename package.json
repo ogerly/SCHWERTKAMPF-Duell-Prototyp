@@ -1,0 +1,9 @@
+{
+  "name": "schwertkampf-duell-prototyp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Black Manor Combat — Duell-Prototyp (statischer Build für Cloudflare Pages)",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

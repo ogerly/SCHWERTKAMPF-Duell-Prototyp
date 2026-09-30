@@ -13,12 +13,13 @@ gebaut als **einbettbarer Microservice** für Story-Editor + Frontend des
 
 `duell-prototyp.html` im Browser öffnen. Steuerung: Tastatur (Angriff oben/unten, Block oben/unten).
 
-## Push-Anleitung (maintainer)
+## Push (später, maintainer)
+
+Remote: https://github.com/ogerly/SCHWERTKAMPF-Duell-Prototyp.git (bereits eingetragen).
+Enthalten: **nur der Microservice** (Prototyp, Sheet, Engine/Render, Docs) — nichts anderes.
 
 ```bash
-gh repo create ogerly/black-manor-combat --public --source=. --push
-# ohne gh: Repo auf github.com/ogerly anlegen, dann:
-# git remote add origin git@github.com:ogerly/black-manor-combat.git && git push -u origin main
+git push -u origin main
 ```
 
 ## Lizenz
